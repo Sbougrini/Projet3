@@ -10,7 +10,7 @@ bool CommandLine::verifyCommandLine(int argc, char* argv[], Command& command, st
 		return true;
 	}
 	std::string commandName = argv[1];
-	if (commandName == "help") 
+	if (commandName == "help")
 	{
 		command.mode = Mode::HELP;
 		return true;
