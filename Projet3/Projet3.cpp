@@ -1,9 +1,7 @@
+#include "CommandLine.h"
 #include <iostream>
-#include "CommandLine.h"
 
-#include "CommandLine.h"
-
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     Command command;
     std::string error;
