@@ -1,5 +1,27 @@
 #pragma once
-class CommandLine
+
+#include <string>
+
+enum class Mode 
 {
+	HELP = 0,
+	EMBED,
+	EXTRACT
 };
 
+struct Command 
+{
+	Mode mode = Mode::HELP;
+	std::string source;
+	std::string destination;
+	std::string message;
+	std::string key;
+};
+
+class CommandLine
+{
+public:
+	CommandLine() = delete;
+	static bool verifyCommandLine(int argc, char *argv[], Command &command, std::string &error);
+	static void printHelp();
+};
