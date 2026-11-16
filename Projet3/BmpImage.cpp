@@ -4,9 +4,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
+#include <string>
 #include <vector>
 
-int ouvrirFichier(const char *nomFichier)
+bool chargerImage(const char *nomFichier, BmpImage &image)
 {
     FILE *fichier = nullptr;
     fopen_s(&fichier, nomFichier, "rb");
@@ -14,173 +15,171 @@ int ouvrirFichier(const char *nomFichier)
     if (fichier == nullptr)
     {
         std::cout << "Erreur ouverture fichier.\n";
-        return 1;
+        return false;
     }
 
     // Verification de la signature BMP
     char signature[2];
 
-    if (fread(signature, sizeof(char), 2, fichier) != 2)
+    if (fread(signature, 1, 2, fichier) != 2 || signature[0] != 'B' ||
+        signature[1] != 'M')
     {
-        std::cout << "Erreur lecture signature.\n";
+        std::cout << "Fichier BMP invalide.\n";
         fclose(fichier);
-        return 1;
+        return false;
     }
 
-    if (signature[0] != 'B' || signature[1] != 'M')
-    {
-        std::cout << "Format BMP invalide.\n";
-        fclose(fichier);
-        return 1;
-    }
-
-    // Lecture de la largeur
     int32_t largeur = 0;
-
-    if (fseek(fichier, 18, SEEK_SET) != 0 ||
-        fread(&largeur, sizeof(int32_t), 1, fichier) != 1)
-    {
-        std::cout << "Erreur lecture largeur.\n";
-        fclose(fichier);
-        return 1;
-    }
-
-    // Lecture de la hauteur
     int32_t hauteur = 0;
-
-    if (fseek(fichier, 22, SEEK_SET) != 0 ||
-        fread(&hauteur, sizeof(int32_t), 1, fichier) != 1)
-    {
-        std::cout << "Erreur lecture hauteur.\n";
-        fclose(fichier);
-        return 1;
-    }
-
-    if (largeur <= 0 || hauteur <= 0)
-    {
-        std::cout << "Dimensions non prises en charge.\n";
-        fclose(fichier);
-        return 1;
-    }
-
-    // Verification des 24 bits par pixel
     uint16_t bitsParPixel = 0;
-
-    if (fseek(fichier, 28, SEEK_SET) != 0 ||
-        fread(&bitsParPixel, sizeof(uint16_t), 1, fichier) != 1)
-    {
-        std::cout << "Erreur lecture bits par pixel.\n";
-        fclose(fichier);
-        return 1;
-    }
-
-    if (bitsParPixel != 24)
-    {
-        std::cout << "Le BMP doit etre en 24 bits.\n";
-        fclose(fichier);
-        return 1;
-    }
-
-    // Verification de la compression
     uint32_t compression = 0;
-
-    if (fseek(fichier, 30, SEEK_SET) != 0 ||
-        fread(&compression, sizeof(uint32_t), 1, fichier) != 1)
-    {
-        std::cout << "Erreur lecture compression.\n";
-        fclose(fichier);
-        return 1;
-    }
-
-    if (compression != 0)
-    {
-        std::cout << "Le BMP doit etre non compresse.\n";
-        fclose(fichier);
-        return 1;
-    }
-
-    // Lecture de la position des pixels
     uint32_t offsetPixels = 0;
+    uint32_t tailleDib = 0;
 
-    if (fseek(fichier, 10, SEEK_SET) != 0 ||
-        fread(&offsetPixels, sizeof(uint32_t), 1, fichier) != 1)
+    // Lecture des informations BMP
+    bool lectureOk =
+        fseek(fichier, 10, SEEK_SET) == 0 && fread(&offsetPixels, 4, 1, fichier) == 1 &&
+        fseek(fichier, 14, SEEK_SET) == 0 && fread(&tailleDib, 4, 1, fichier) == 1 &&
+        fseek(fichier, 18, SEEK_SET) == 0 && fread(&largeur, 4, 1, fichier) == 1 &&
+        fread(&hauteur, 4, 1, fichier) == 1 && fseek(fichier, 28, SEEK_SET) == 0 &&
+        fread(&bitsParPixel, 2, 1, fichier) == 1 &&
+        fread(&compression, 4, 1, fichier) == 1;
+
+    if (!lectureOk)
     {
-        std::cout << "Erreur lecture offset pixels.\n";
+        std::cout << "Erreur lecture en-tete.\n";
         fclose(fichier);
-        return 1;
+        return false;
+    }
+
+    // Verification du format
+    if (largeur <= 0 || hauteur <= 0 || bitsParPixel != 24 || compression != 0 ||
+        tailleDib < 40 || offsetPixels < 14 + tailleDib)
+    {
+        std::cout << "Format BMP non pris en charge.\n";
+        fclose(fichier);
+        return false;
     }
 
     // Calcul du padding
     int octetsLigne = largeur * 3;
     int padding = (4 - (octetsLigne % 4)) % 4;
-    int tailleLigne = octetsLigne + padding;
 
-    std::cout << "Largeur : " << largeur << '\n';
-    std::cout << "Hauteur : " << hauteur << '\n';
-    std::cout << "Bits par pixel : " << bitsParPixel << '\n';
-    std::cout << "Compression : " << compression << '\n';
-    std::cout << "Offset pixels : " << offsetPixels << '\n';
-    std::cout << "Taille ligne : " << tailleLigne << '\n';
-    std::cout << "Padding : " << padding << '\n';
+    // Enregistrer les informations dans la structure
+    image.largeur = largeur;
+    image.hauteur = hauteur;
+    image.offsetPixels = offsetPixels;
 
-    // Placement au debut des pixels
-    if (fseek(fichier, offsetPixels, SEEK_SET) != 0)
+    // Lecture de l'en-tete complet
+    image.entete.resize(offsetPixels);
+
+    fseek(fichier, 0, SEEK_SET);
+
+    if (fread(image.entete.data(), 1, offsetPixels, fichier) != offsetPixels)
     {
-        std::cout << "Erreur positionnement pixels.\n";
+        std::cout << "Erreur lecture en-tete.\n";
         fclose(fichier);
-        return 1;
+        return false;
     }
 
-    // Stockage des composantes BGR
-    std::vector<unsigned char> pixels;
+    // Se placer au debut des pixels
+    fseek(fichier, offsetPixels, SEEK_SET);
 
+    image.pixels.clear();
+
+    // Lecture des pixels BGR
     for (int y = 0; y < hauteur; y++)
     {
         for (int x = 0; x < largeur; x++)
         {
             unsigned char pixel[3];
 
-            if (fread(pixel, sizeof(unsigned char), 3, fichier) != 3)
+            if (fread(pixel, 1, 3, fichier) != 3)
             {
                 std::cout << "Erreur lecture pixel.\n";
                 fclose(fichier);
-                return 1;
+                return false;
             }
 
-            pixels.push_back(pixel[0]);
-            pixels.push_back(pixel[1]);
-            pixels.push_back(pixel[2]);
+            image.pixels.push_back(pixel[0]);
+            image.pixels.push_back(pixel[1]);
+            image.pixels.push_back(pixel[2]);
         }
 
-        // Ignorer les octets de padding
-        if (fseek(fichier, padding, SEEK_CUR) != 0)
-        {
-            std::cout << "Erreur lecture padding.\n";
-            fclose(fichier);
-            return 1;
-        }
-    }
-
-    std::cout << "Octets stockes : " << pixels.size() << '\n';
-
-    // Test : cacher les 8 bits du caractere A
-    unsigned char caractere = 'A';
-    int index = 0;
-
-    if (pixels.size() >= 8)
-    {
-        for (int i = 7; i >= 0; i--)
-        {
-            int bit = (caractere >> i) & 1;
-
-            pixels[index] = (pixels[index] & 254) | bit;
-
-            index++;
-        }
-
-        std::cout << "Caractere A cache dans le vector.\n";
+        // Ignorer le padding
+        fseek(fichier, padding, SEEK_CUR);
     }
 
     fclose(fichier);
-    return 0;
+
+    std::cout << "Largeur : " << image.largeur << '\n';
+    std::cout << "Hauteur : " << image.hauteur << '\n';
+    std::cout << "Padding : " << padding << '\n';
+    std::cout << "Octets stockes : " << image.pixels.size() << '\n';
+
+    return true;
+}
+
+bool sauvegarderImage(const char *nomFichier, const BmpImage &image)
+{
+    FILE *destination = nullptr;
+    fopen_s(&destination, nomFichier, "wb");
+
+    if (destination == nullptr)
+    {
+        std::cout << "Erreur ouverture destination.\n";
+        return false;
+    }
+
+    // Ecriture de l'en-tete BMP
+    if (fwrite(image.entete.data(), 1, image.entete.size(), destination) !=
+        image.entete.size())
+    {
+        std::cout << "Erreur ecriture en-tete.\n";
+        fclose(destination);
+        return false;
+    }
+
+    int octetsLigne = image.largeur * 3;
+    int padding = (4 - (octetsLigne % 4)) % 4;
+    int index = 0;
+
+    // Ecriture des pixels
+    for (int y = 0; y < image.hauteur; y++)
+    {
+        for (int x = 0; x < image.largeur; x++)
+        {
+            if (fwrite(&image.pixels[index], 1, 3, destination) != 3)
+            {
+                std::cout << "Erreur ecriture pixel.\n";
+                fclose(destination);
+                return false;
+            }
+
+            index += 3;
+        }
+
+        // Ecriture du padding
+        unsigned char zero = 0;
+
+        for (int p = 0; p < padding; p++)
+        {
+            if (fwrite(&zero, 1, 1, destination) != 1)
+            {
+                std::cout << "Erreur ecriture padding.\n";
+                fclose(destination);
+                return false;
+            }
+        }
+    }
+
+    if (fclose(destination) != 0)
+    {
+        std::cout << "Erreur fermeture destination.\n";
+        return false;
+    }
+
+    std::cout << "Image sauvegardee : " << nomFichier << '\n';
+
+    return true;
 }

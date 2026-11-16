@@ -1,10 +1,19 @@
+
 #pragma once
 
-int ouvrirFichier(const char* nomFichier);
+#include <cstdint>
+#include <vector>
 
-class BmpImage
+struct BmpImage
 {
+    int32_t largeur = 0;
+    int32_t hauteur = 0;
+    uint32_t offsetPixels = 0;
 
-	
+    std::vector<unsigned char> entete;
+    std::vector<unsigned char> pixels;
 };
 
+bool chargerImage(const char * nomFichier, BmpImage& image);
+
+bool sauvegarderImage(const char *nomFichier, const BmpImage &image);
