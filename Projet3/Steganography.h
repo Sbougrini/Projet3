@@ -1,5 +1,6 @@
 #pragma once
-class Steganography
-{
-};
 
+#include "BmpImage.h"
+#include <string>
+
+bool cacherMessage(BmpImage &image, const std::string &message);
