@@ -93,7 +93,7 @@ bool CommandLine::verifyEmbed(int argc, char *argv[], Command &command,
     return true;
 }
 
-bool CommandLine::verifyHelp(int argc, char *argv[], Command &command, std::string &error)
+bool CommandLine::verifyHelp(int argc, char *[], Command &command, std::string &error)
 {
     if (argc != 1 && argc != 2)
     {
