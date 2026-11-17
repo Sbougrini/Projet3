@@ -1,7 +1,9 @@
 #include "CommandLine.h"
 #include "Xor.h"
+#include "Steganography.h"
 
 #include <iostream>
+#include <vector>
 
 int main(int argc, char *argv[])
 {
