@@ -1,6 +1,10 @@
 #include "CommandLine.h"
-#include <iostream>
 #include "bmpImage.h"
+#include "Steganography.h"
+
+#include <iostream>
+#include <string>
+
 
 int main(int argc, char *argv[])
 {
@@ -24,51 +28,41 @@ int main(int argc, char *argv[])
         CommandLine::printHelp();
     }
 
-  BmpImage image;
+   BmpImage image;
+    std::string errorMessage;
+    std::string message = "Bonjour";
+    bool encrypted = false;
 
     // Charger l'image
-    if (!chargerImage("images/Image.bmp", image))
+    if (!loadImage("images/Image.bmp", image, errorMessage))
     {
+        std::cout << errorMessage << '\n';
         return 1;
     }
 
-    // Message a cacher
-    std::string message = "Bonjour";
+    // Afficher les informations de l'image
+    std::cout << "Width : " << image.width << '\n';
+    std::cout << "Height : " << image.height << '\n';
+    std::cout << "Pixel bytes : " << image.pixels.size() << '\n';
 
-    // Verification de la capacite
-    int bitsNecessaires = message.size() * 8;
-
-    if (bitsNecessaires > image.pixels.size())
+    // Cacher le message et les metadonnees
+    if (!hideMessage(image, message, encrypted, errorMessage))
     {
-        std::cout << "Image trop petite.\n";
+        std::cout << errorMessage << '\n';
         return 1;
     }
 
-    int index = 0;
-
-    // Cacher chaque caractere
-    for (int j = 0; j < message.size(); j++)
+    // Sauvegarder l'image modifiee
+    if (!saveImage("images/Image_cachee.bmp", image, errorMessage))
     {
-        unsigned char caractere = message[j];
-
-        for (int i = 0; i < 8; i++)
-        {
-            int bit = (caractere >> (7 - i)) & 1;
-
-            image.pixels[index] = (image.pixels[index] & 0xFE) | bit;
-
-            index++;
-        }
-    }
-
-    // Sauvegarder l'image
-    if (!sauvegarderImage("images/Image_cachee.bmp", image))
-    {
+        std::cout << errorMessage << '\n';
         return 1;
     }
 
-    std::cout << "Message cache : " << message << '\n';
+    std::cout << "Message hidden : " << message << '\n';
+    std::cout << "Image saved successfully.\n";
 
+    return 0;
 
     return 0;
 }

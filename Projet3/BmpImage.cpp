@@ -3,183 +3,258 @@
 
 #include <cstdint>
 #include <cstdio>
-#include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
-bool chargerImage(const char *nomFichier, BmpImage &image)
-{
-    FILE *fichier = nullptr;
-    fopen_s(&fichier, nomFichier, "rb");
+// BMP constants
+const uint32_t BMP_HEADER_SIZE = 40;
+const uint16_t BITS_PER_PIXEL = 24;
+const uint32_t NO_COMPRESSION = 0;
+const int BYTES_PER_PIXEL = 3;
+const int BMP_DATA_START = 54;
+const int BYTE_ALIGNMENT = 4;
 
-    if (fichier == nullptr)
+bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
+{
+    errorMessage.clear();
+
+    FILE *file = fopen(fileName, "rb");
+
+    if (file == nullptr)
     {
-        std::cout << "Erreur ouverture fichier.\n";
+        errorMessage = "Cannot open file.";
         return false;
     }
 
-    // Verification de la signature BMP
     char signature[2];
 
-    if (fread(signature, 1, 2, fichier) != 2 || signature[0] != 'B' ||
-        signature[1] != 'M')
+    if (fread(signature, 1, 2, file) != 2 || signature[0] != 'B' || signature[1] != 'M')
     {
-        std::cout << "Fichier BMP invalide.\n";
-        fclose(fichier);
+        errorMessage = "Invalid BMP file.";
+        fclose(file);
         return false;
     }
 
-    int32_t largeur = 0;
-    int32_t hauteur = 0;
-    uint16_t bitsParPixel = 0;
+    int32_t width = 0;
+    int32_t height = 0;
+    uint16_t bitsPerPixel = 0;
     uint32_t compression = 0;
-    uint32_t offsetPixels = 0;
-    uint32_t tailleDib = 0;
+    uint32_t pixelOffset = 0;
+    uint32_t dibSize = 0;
 
-    // Lecture des informations BMP
-    bool lectureOk =
-        fseek(fichier, 10, SEEK_SET) == 0 && fread(&offsetPixels, 4, 1, fichier) == 1 &&
-        fseek(fichier, 14, SEEK_SET) == 0 && fread(&tailleDib, 4, 1, fichier) == 1 &&
-        fseek(fichier, 18, SEEK_SET) == 0 && fread(&largeur, 4, 1, fichier) == 1 &&
-        fread(&hauteur, 4, 1, fichier) == 1 && fseek(fichier, 28, SEEK_SET) == 0 &&
-        fread(&bitsParPixel, 2, 1, fichier) == 1 &&
-        fread(&compression, 4, 1, fichier) == 1;
+    bool readOk =
+        fseek(file, 10, SEEK_SET) == 0 && fread(&pixelOffset, 4, 1, file) == 1 &&
+        fseek(file, 14, SEEK_SET) == 0 && fread(&dibSize, 4, 1, file) == 1 &&
+        fseek(file, 18, SEEK_SET) == 0 && fread(&width, 4, 1, file) == 1 &&
+        fread(&height, 4, 1, file) == 1 && fseek(file, 28, SEEK_SET) == 0 &&
+        fread(&bitsPerPixel, 2, 1, file) == 1 && fread(&compression, 4, 1, file) == 1;
 
-    if (!lectureOk)
+    if (!readOk)
     {
-        std::cout << "Erreur lecture en-tete.\n";
-        fclose(fichier);
+        errorMessage = "Cannot read BMP header.";
+        fclose(file);
         return false;
     }
 
-    // Verification du format
-    if (largeur <= 0 || hauteur <= 0 || bitsParPixel != 24 || compression != 0 ||
-        tailleDib < 40 || offsetPixels < 14 + tailleDib)
+    if (width <= 0 || height <= 0 || bitsPerPixel != BITS_PER_PIXEL ||
+        compression != NO_COMPRESSION || dibSize != BMP_HEADER_SIZE ||
+        pixelOffset < BMP_DATA_START)
     {
-        std::cout << "Format BMP non pris en charge.\n";
-        fclose(fichier);
+        errorMessage = "Unsupported BMP format.";
+        fclose(file);
         return false;
     }
 
-    // Calcul du padding
-    int octetsLigne = largeur * 3;
-    int padding = (4 - (octetsLigne % 4)) % 4;
-
-    // Enregistrer les informations dans la structure
-    image.largeur = largeur;
-    image.hauteur = hauteur;
-    image.offsetPixels = offsetPixels;
-
-    // Lecture de l'en-tete complet
-    image.entete.resize(offsetPixels);
-
-    fseek(fichier, 0, SEEK_SET);
-
-    if (fread(image.entete.data(), 1, offsetPixels, fichier) != offsetPixels)
+    if (width > std::numeric_limits<int>::max() / BYTES_PER_PIXEL)
     {
-        std::cout << "Erreur lecture en-tete.\n";
-        fclose(fichier);
+        errorMessage = "Image is too wide.";
+        fclose(file);
         return false;
     }
 
-    // Se placer au debut des pixels
-    fseek(fichier, offsetPixels, SEEK_SET);
+    int rowBytes = width * BYTES_PER_PIXEL;
+    int padding = (BYTE_ALIGNMENT - (rowBytes % BYTE_ALIGNMENT)) % BYTE_ALIGNMENT;
 
-    image.pixels.clear();
-
-    // Lecture des pixels BGR
-    for (int y = 0; y < hauteur; y++)
+    if (fseek(file, 0, SEEK_END) != 0)
     {
-        for (int x = 0; x < largeur; x++)
+        errorMessage = "Cannot read file size.";
+        fclose(file);
+        return false;
+    }
+
+    long fileSize = ftell(file);
+
+    if (fileSize < 0)
+    {
+        errorMessage = "Cannot read file size.";
+        fclose(file);
+        return false;
+    }
+
+    uint64_t rowSize = uint64_t(rowBytes) + padding;
+    uint64_t requiredSize = uint64_t(pixelOffset) + rowSize * height;
+
+    if (requiredSize > uint64_t(fileSize))
+    {
+        errorMessage = "BMP file is truncated.";
+        fclose(file);
+        return false;
+    }
+
+    if (pixelOffset > uint64_t(std::numeric_limits<long>::max()))
+    {
+        errorMessage = "BMP pixel offset is too large.";
+        fclose(file);
+        return false;
+    }
+
+    BmpImage result;
+    result.width = width;
+    result.height = height;
+    result.pixelOffset = pixelOffset;
+
+    result.header.resize(pixelOffset);
+
+    if (fseek(file, 0, SEEK_SET) != 0 ||
+        fread(result.header.data(), 1, pixelOffset, file) != pixelOffset)
+    {
+        errorMessage = "Cannot read full BMP header.";
+        fclose(file);
+        return false;
+    }
+
+    if (fseek(file, static_cast<long>(pixelOffset), SEEK_SET) != 0)
+    {
+        errorMessage = "Cannot reach BMP pixels.";
+        fclose(file);
+        return false;
+    }
+
+    // Read BGR pixels
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
         {
             unsigned char pixel[3];
 
-            if (fread(pixel, 1, 3, fichier) != 3)
+            if (fread(pixel, 1, BYTES_PER_PIXEL, file) != BYTES_PER_PIXEL)
             {
-                std::cout << "Erreur lecture pixel.\n";
-                fclose(fichier);
+                errorMessage = "Cannot read pixel.";
+                fclose(file);
                 return false;
             }
 
-            image.pixels.push_back(pixel[0]);
-            image.pixels.push_back(pixel[1]);
-            image.pixels.push_back(pixel[2]);
+            result.pixels.push_back(pixel[0]);
+            result.pixels.push_back(pixel[1]);
+            result.pixels.push_back(pixel[2]);
         }
 
-        // Ignorer le padding
-        fseek(fichier, padding, SEEK_CUR);
+        // Keep original padding bytes
+        for (int p = 0; p < padding; ++p)
+        {
+            unsigned char byte = 0;
+
+            if (fread(&byte, 1, 1, file) != 1)
+            {
+                errorMessage = "Cannot read padding.";
+                fclose(file);
+                return false;
+            }
+
+            result.paddings.push_back(byte);
+        }
     }
 
-    fclose(fichier);
-
-    std::cout << "Largeur : " << image.largeur << '\n';
-    std::cout << "Hauteur : " << image.hauteur << '\n';
-    std::cout << "Padding : " << padding << '\n';
-    std::cout << "Octets stockes : " << image.pixels.size() << '\n';
-
-    return true;
-}
-
-bool sauvegarderImage(const char *nomFichier, const BmpImage &image)
-{
-    FILE *destination = nullptr;
-    fopen_s(&destination, nomFichier, "wb");
-
-    if (destination == nullptr)
+    if (fclose(file) != 0)
     {
-        std::cout << "Erreur ouverture destination.\n";
+        errorMessage = "Cannot close file.";
         return false;
     }
 
-    // Ecriture de l'en-tete BMP
-    if (fwrite(image.entete.data(), 1, image.entete.size(), destination) !=
-        image.entete.size())
+    image = result;
+    return true;
+}
+
+bool saveImage(const char *fileName, const BmpImage &image, std::string &errorMessage)
+{
+    errorMessage.clear();
+
+    if (image.width <= 0 || image.height <= 0 ||
+        image.width > std::numeric_limits<int>::max() / BYTES_PER_PIXEL)
     {
-        std::cout << "Erreur ecriture en-tete.\n";
+        errorMessage = "Invalid image dimensions.";
+        return false;
+    }
+
+    int rowBytes = image.width * BYTES_PER_PIXEL;
+    int padding = (BYTE_ALIGNMENT - (rowBytes % BYTE_ALIGNMENT)) % BYTE_ALIGNMENT;
+
+    uint64_t pixelCount = uint64_t(image.width) * image.height * BYTES_PER_PIXEL;
+
+    uint64_t paddingCount = uint64_t(image.height) * padding;
+
+    if (image.pixels.size() != pixelCount || image.paddings.size() != paddingCount ||
+        image.header.size() != image.pixelOffset)
+    {
+        errorMessage = "Invalid BMP data.";
+        return false;
+    }
+
+    // Do not overwrite an existing file
+    FILE *destination = fopen(fileName, "wbx");
+
+    if (destination == nullptr)
+    {
+        errorMessage = "Destination already exists or is inaccessible.";
+        return false;
+    }
+
+    if (fwrite(image.header.data(), 1, image.header.size(), destination) !=
+        image.header.size())
+    {
+        errorMessage = "Cannot write BMP header.";
         fclose(destination);
         return false;
     }
 
-    int octetsLigne = image.largeur * 3;
-    int padding = (4 - (octetsLigne % 4)) % 4;
-    int index = 0;
+    size_t index = 0;
+    size_t paddingIndex = 0;
 
-    // Ecriture des pixels
-    for (int y = 0; y < image.hauteur; y++)
+    for (int y = 0; y < image.height; ++y)
     {
-        for (int x = 0; x < image.largeur; x++)
+        for (int x = 0; x < image.width; ++x)
         {
-            if (fwrite(&image.pixels[index], 1, 3, destination) != 3)
+            if (fwrite(&image.pixels[index], 1, BYTES_PER_PIXEL, destination) !=
+                BYTES_PER_PIXEL)
             {
-                std::cout << "Erreur ecriture pixel.\n";
+                errorMessage = "Cannot write pixel.";
                 fclose(destination);
                 return false;
             }
 
-            index += 3;
+            index += BYTES_PER_PIXEL;
         }
 
-        // Ecriture du padding
-        unsigned char zero = 0;
-
-        for (int p = 0; p < padding; p++)
+        // Write original padding
+        for (int p = 0; p < padding; ++p)
         {
-            if (fwrite(&zero, 1, 1, destination) != 1)
+            if (fwrite(&image.paddings[paddingIndex], 1, 1, destination) != 1)
             {
-                std::cout << "Erreur ecriture padding.\n";
+                errorMessage = "Cannot write padding.";
                 fclose(destination);
                 return false;
             }
+
+            ++paddingIndex;
         }
     }
 
     if (fclose(destination) != 0)
     {
-        std::cout << "Erreur fermeture destination.\n";
+        errorMessage = "Cannot close destination.";
         return false;
     }
-
-    std::cout << "Image sauvegardee : " << nomFichier << '\n';
 
     return true;
 }

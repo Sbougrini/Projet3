@@ -1,62 +1,74 @@
+
 #include "Steganography.h"
 
-#include <iostream>
+#include <cstdint>
+#include <limits>
 #include <string>
 
-void cacherOctet(BmpImage &image, unsigned char octet, int &index)
+// Hide one byte in 8 pixel components
+static void hideByte(BmpImage &image, unsigned char byte, size_t &index)
 {
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < BITS_PER_BYTE; ++i)
     {
-        int bit = (octet >> (7 - i)) & 1;
+        int bit = (byte >> (7 - i)) & 1;
+
         image.pixels[index] = (image.pixels[index] & 0xFE) | bit;
-        index++;
+
+        ++index;
     }
 }
 
-bool cacherMessage(BmpImage &image, const std::string &message)
+bool hideMessage(BmpImage &image, const std::string &message, bool encrypted,
+                 std::string &errorMessage)
 {
-    if (image.pixels.size() < 72)
+    errorMessage.clear();
+
+    if (image.pixels.size() < METADATA_SIZE * BITS_PER_BYTE)
     {
+        errorMessage = "Image is too small.";
         return false;
     }
 
-    int capacite = static_cast<int>(image.pixels.size() / 8) - 9;
+    size_t capacity = image.pixels.size() / BITS_PER_BYTE - METADATA_SIZE;
 
-    if (message.size() > capacite)
+    if (message.size() > capacity)
     {
-        std::cout << "Image trop petite.\n";
+        errorMessage = "Message is too large for this image.";
         return false;
     }
 
-    std::string signature = "STEG";
-
-    if ((9 + message.size()) * 8 > image.pixels.size())
+    if (message.size() > std::numeric_limits<uint32_t>::max())
     {
+        errorMessage = "Message length is too large.";
         return false;
     }
 
-    int index = 0;
+    size_t index = 0;
 
-    for (char c : signature)
+    // Hide STEG signature
+    for (int i = 0; i < SIGNATURE_SIZE; ++i)
     {
-        cacherOctet(image, c, index);
+        hideByte(image, STEG_SIGNATURE[i], index);
     }
 
-    unsigned char chiffrement = 0;
+    // Hide encryption flag
+    unsigned char encryptionFlag = encrypted ? 1 : 0;
+    hideByte(image, encryptionFlag, index);
 
-    cacherOctet(image, chiffrement, index);
+    // Hide message length (little-endian)
+    uint32_t messageLength = static_cast<uint32_t>(message.size());
 
-    uint32_t longueur = message.size();
-    
-    for (int octet = 0; octet < 4; octet++)
+    for (int byteIndex = 0; byteIndex < LENGTH_SIZE; ++byteIndex)
     {
-        unsigned char valeur = (longueur >> (octet * 8)) & 0xFF;
-        cacherOctet(image, valeur, index);
+        unsigned char value = (messageLength >> (byteIndex * BITS_PER_BYTE)) & 0xFF;
+
+        hideByte(image, value, index);
     }
 
-    for (char c : message)
+    // Hide message
+    for (unsigned char character : message)
     {
-        cacherOctet (image, c, index);
+        hideByte(image, character, index);
     }
 
     return true;
