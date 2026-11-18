@@ -5,97 +5,98 @@
 bool CommandLine::verifyCommandLine(int argc, char *argv[], Command &command,
                                     std::string &error)
 {
-    if (argc < 2)
+    std::vector<std::string> arguments(argv, argv + argc);
+    if (arguments.size() < HELP_ARGUMENT_COUNT)
     {
-        return verifyHelp(argc, argv, command, error);
+        return verifyHelp(arguments, command, error);
     }
-    std::string commandName = argv[1];
+    std::string commandName = arguments[1];
     if (commandName == "help")
     {
-        return verifyHelp(argc, argv, command, error);
+        return verifyHelp(arguments, command, error);
     }
     if (commandName == "extract")
     {
-        return verifyExtract(argc, argv, command, error);
+        return verifyExtract(arguments, command, error);
     }
     if (commandName == "embed")
     {
-        return verifyEmbed(argc, argv, command, error);
+        return verifyEmbed(arguments, command, error);
     }
     error = "Commande inconnue : " + commandName;
     return false;
 }
 
-bool CommandLine::verifyKey(int argc, char *argv[], Command &command, std::string &error,
-                            int keyIndex)
+bool CommandLine::verifyKey(const std::vector<std::string> &arguments, Command &command,
+                            std::string &error, std::size_t keyIndex)
 {
-    if (keyIndex + 1 >= argc)
+    if (keyIndex + 1 >= arguments.size())
     {
         error = "--key doit etre suivi d'une cle.";
         return false;
     }
-    std::string option = argv[keyIndex];
-    if (option != "--key")
+    if (arguments[keyIndex] != KEY_OPTION)
     {
-        error = "Option inconnue : " + option;
+        error = "Option inconnue : " + arguments[keyIndex];
         return false;
     }
-
-    std::string key = argv[keyIndex + 1];
-    if (key.empty())
+    if (arguments[keyIndex + 1].empty())
     {
         error = "La cle ne doit pas etre vide.";
         return false;
     }
-    command.key = key;
+    command.key = arguments[keyIndex + 1];
     return true;
 }
 
-bool CommandLine::verifyExtract(int argc, char *argv[], Command &command,
-                                std::string &error)
+bool CommandLine::verifyExtract(const std::vector<std::string> &arguments,
+                                Command &command, std::string &error)
 {
-    if (argc != 3 && argc != 5)
+    if (arguments.size() != EXTRACT_ARGUMENT_COUNT &&
+        arguments.size() != EXTRACT_ARGUMENT_COUNT + KEY_OPTION_ARGUMENT_COUNT)
     {
         error = "Nombre d'arguments incorrect pour extract.";
         return false;
     }
     command.mode = Mode::EXTRACT;
-    command.source = argv[2];
-    if (argc == 5)
+    command.source = arguments[2];
+    if (arguments.size() == EXTRACT_ARGUMENT_COUNT + KEY_OPTION_ARGUMENT_COUNT)
     {
-        return verifyKey(argc, argv, command, error, 3);
+        return verifyKey(arguments, command, error, EXTRACT_ARGUMENT_COUNT);
     }
     return true;
 }
 
-bool CommandLine::verifyEmbed(int argc, char *argv[], Command &command,
+bool CommandLine::verifyEmbed(const std::vector<std::string> &arguments, Command &command,
                               std::string &error)
 {
-    if (argc != 5 && argc != 7)
+    if (arguments.size() != EMBED_ARGUMENT_COUNT &&
+        arguments.size() != EMBED_ARGUMENT_COUNT + KEY_OPTION_ARGUMENT_COUNT)
     {
         error = "Nombre d'arguments incorrect pour embed.";
         return false;
     }
     command.mode = Mode::EMBED;
-    command.source = argv[2];
-    command.destination = argv[3];
-    command.message = argv[4];
+    command.source = arguments[2];
+    command.destination = arguments[3];
+    command.message = arguments[4];
     if (command.message.empty())
     {
         error = "Le message a cacher ne doit pas etre vide.";
         return false;
     }
-    if (argc == 7)
+    if (arguments.size() == EMBED_ARGUMENT_COUNT + KEY_OPTION_ARGUMENT_COUNT)
     {
-        return verifyKey(argc, argv, command, error, 5);
+        return verifyKey(arguments, command, error, EMBED_ARGUMENT_COUNT);
     }
-
     return true;
 }
 
-bool CommandLine::verifyHelp(int argc, char *[], Command &command, std::string &error)
+bool CommandLine::verifyHelp(const std::vector<std::string> &arguments, Command &command,
+                             std::string &error)
 {
-    if (argc != 1 && argc != 2)
+    if (arguments.size() != NO_COMMAND_ARGUMENT_COUNT &&
+        arguments.size() != HELP_ARGUMENT_COUNT)
     {
         error = "help ne prend pas d'argument.";
         return false;

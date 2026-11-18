@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
+#include <vector>
 
 enum class Mode
 {
@@ -27,10 +29,19 @@ public:
     static void printHelp();
 
 private:
-    static bool verifyHelp(int argc, char *argv[], Command &command, std::string &error);
-    static bool verifyEmbed(int argc, char *argv[], Command &command, std::string &error);
-    static bool verifyExtract(int argc, char *argv[], Command &command,
+    static constexpr std::size_t NO_COMMAND_ARGUMENT_COUNT = 1;
+    static constexpr std::size_t HELP_ARGUMENT_COUNT = 2;
+    static constexpr std::size_t EXTRACT_ARGUMENT_COUNT = 3;
+    static constexpr std::size_t EMBED_ARGUMENT_COUNT = 5;
+    static constexpr std::size_t KEY_OPTION_ARGUMENT_COUNT = 2;
+    static constexpr char KEY_OPTION[] = "--key";
+
+    static bool verifyHelp(const std::vector<std::string> &arguments, Command &command,
+                           std::string &error);
+    static bool verifyEmbed(const std::vector<std::string> &arguments, Command &command,
+                            std::string &error);
+    static bool verifyExtract(const std::vector<std::string> &arguments, Command &command,
                               std::string &error);
-    static bool verifyKey(int argc, char *argv[], Command &command, std::string &error,
-                          int keyIndex);
+    static bool verifyKey(const std::vector<std::string> &arguments, Command &command,
+                          std::string &error, std::size_t keyIndex);
 };
