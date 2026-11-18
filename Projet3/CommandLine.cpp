@@ -114,12 +114,12 @@ void CommandLine::printHelp()
               << std::endl;
     std::cout << "extract : steg extract <source.bmp> [--key \"<cle>\" ]" << std::endl;
     std::cout << "\nExemples : " << std::endl;
-    std::cout << "steg embed \"images/ma voiture.bmp\" \"images/voiture perso.bmp\" "
-                 "\"rdv a 16h\""
+    std::cout << "steg embed \"images/Gaming_Campus_Logo.bmp\" \"images/logo secret.bmp\" "
+                 "\"rdv a 17h\""
               << std::endl;
-    std::cout << "steg embed \"images/ma voiture.bmp\" \"images/voiture perso.bmp\" "
-                 "\"rdv a 16h\" --key \"ma cle\" "
+    std::cout << "steg embed \"images/Gaming_Campus_Logo.bmp\" \"images/logo chiffre.bmp\" "
+                 "\"rdv a 17h\" --key \"ma cle\" "
               << std::endl;
-    std::cout << "steg extract \"images/voiture perso.bmp\" --key \"ma cle\" "
+    std::cout << "steg extract \"images/logo chiffre.bmp\" --key \"ma cle\" "
               << std::endl;
 }

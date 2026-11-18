@@ -29,13 +29,6 @@ public:
     static void printHelp();
 
 private:
-    static constexpr std::size_t NO_COMMAND_ARGUMENT_COUNT = 1;
-    static constexpr std::size_t HELP_ARGUMENT_COUNT = 2;
-    static constexpr std::size_t EXTRACT_ARGUMENT_COUNT = 3;
-    static constexpr std::size_t EMBED_ARGUMENT_COUNT = 5;
-    static constexpr std::size_t KEY_OPTION_ARGUMENT_COUNT = 2;
-    static constexpr char KEY_OPTION[] = "--key";
-
     static bool verifyHelp(const std::vector<std::string> &arguments, Command &command,
                            std::string &error);
     static bool verifyEmbed(const std::vector<std::string> &arguments, Command &command,
@@ -44,4 +37,11 @@ private:
                               std::string &error);
     static bool verifyKey(const std::vector<std::string> &arguments, Command &command,
                           std::string &error, std::size_t keyIndex);
+
+    static constexpr std::size_t NO_COMMAND_ARGUMENT_COUNT = 1;
+    static constexpr std::size_t HELP_ARGUMENT_COUNT = 2;
+    static constexpr std::size_t EXTRACT_ARGUMENT_COUNT = 3;
+    static constexpr std::size_t EMBED_ARGUMENT_COUNT = 5;
+    static constexpr std::size_t KEY_OPTION_ARGUMENT_COUNT = 2;
+    static constexpr char KEY_OPTION[] = "--key";
 };
