@@ -23,7 +23,7 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
 
     if (file == nullptr)
     {
-        errorMessage = "Cannot open file.";
+        errorMessage = "Le fichier n'a pas pu etre ouvert.";
         return false;
     }
 
@@ -31,7 +31,7 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
 
     if (fread(signature, 1, 2, file) != 2 || signature[0] != 'B' || signature[1] != 'M')
     {
-        errorMessage = "Invalid BMP file.";
+        errorMessage = "Fichier BMP invalide.";
         fclose(file);
         return false;
     }
@@ -52,7 +52,7 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
 
     if (!readOk)
     {
-        errorMessage = "Cannot read BMP header.";
+        errorMessage = "Le fichier BMP d'en-tete n'a pas pu etre lu.";
         fclose(file);
         return false;
     }
@@ -61,14 +61,14 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
         compression != NO_COMPRESSION || dibSize != BMP_HEADER_SIZE ||
         pixelOffset < BMP_DATA_START)
     {
-        errorMessage = "Unsupported BMP format.";
+        errorMessage = "Format BMP non supporte.";
         fclose(file);
         return false;
     }
 
     if (width > std::numeric_limits<int>::max() / BYTES_PER_PIXEL)
     {
-        errorMessage = "Image is too wide.";
+        errorMessage = "L'image est trop grande.";
         fclose(file);
         return false;
     }
@@ -78,7 +78,7 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
 
     if (fseek(file, 0, SEEK_END) != 0)
     {
-        errorMessage = "Cannot read file size.";
+        errorMessage = "La taille du fichier n'a pas pu etre lue.";
         fclose(file);
         return false;
     }
@@ -87,7 +87,7 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
 
     if (fileSize < 0)
     {
-        errorMessage = "Cannot read file size.";
+        errorMessage = "La taille du fichier n'a pas pu etre lue";
         fclose(file);
         return false;
     }
@@ -97,14 +97,14 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
 
     if (requiredSize > uint64_t(fileSize))
     {
-        errorMessage = "BMP file is truncated.";
+        errorMessage = "Le fichier BMP est tronque.";
         fclose(file);
         return false;
     }
 
     if (pixelOffset > uint64_t(std::numeric_limits<long>::max()))
     {
-        errorMessage = "BMP pixel offset is too large.";
+        errorMessage = "Le décalage des pixels du fichier BMP est trop grand.";
         fclose(file);
         return false;
     }
@@ -119,14 +119,14 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
     if (fseek(file, 0, SEEK_SET) != 0 ||
         fread(result.header.data(), 1, pixelOffset, file) != pixelOffset)
     {
-        errorMessage = "Cannot read full BMP header.";
+        errorMessage = "Impossible de lire l’en-tete BMP complet.";
         fclose(file);
         return false;
     }
 
     if (fseek(file, static_cast<long>(pixelOffset), SEEK_SET) != 0)
     {
-        errorMessage = "Cannot reach BMP pixels.";
+        errorMessage = "Impossible d’atteindre les pixels du BMP.";
         fclose(file);
         return false;
     }
@@ -140,7 +140,7 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
 
             if (fread(pixel, 1, BYTES_PER_PIXEL, file) != BYTES_PER_PIXEL)
             {
-                errorMessage = "Cannot read pixel.";
+                errorMessage = "Impossible de lire un pixel.";
                 fclose(file);
                 return false;
             }
@@ -157,7 +157,7 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
 
             if (fread(&byte, 1, 1, file) != 1)
             {
-                errorMessage = "Cannot read padding.";
+                errorMessage = "Impossible de lire le padding.";
                 fclose(file);
                 return false;
             }
@@ -168,7 +168,7 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
 
     if (fclose(file) != 0)
     {
-        errorMessage = "Cannot close file.";
+        errorMessage = "Impossible de fermer le fichier.";
         return false;
     }
 
@@ -183,7 +183,7 @@ bool saveImage(const char *fileName, const BmpImage &image, std::string &errorMe
     if (image.width <= 0 || image.height <= 0 ||
         image.width > std::numeric_limits<int>::max() / BYTES_PER_PIXEL)
     {
-        errorMessage = "Invalid image dimensions.";
+        errorMessage = "Dimensions de l’image invalides.";
         return false;
     }
 
@@ -197,7 +197,7 @@ bool saveImage(const char *fileName, const BmpImage &image, std::string &errorMe
     if (image.pixels.size() != pixelCount || image.paddings.size() != paddingCount ||
         image.header.size() != image.pixelOffset)
     {
-        errorMessage = "Invalid BMP data.";
+        errorMessage = "Donnees BMP invalides.";
         return false;
     }
 
@@ -206,14 +206,14 @@ bool saveImage(const char *fileName, const BmpImage &image, std::string &errorMe
 
     if (destination == nullptr)
     {
-        errorMessage = "Destination already exists or is inaccessible.";
+        errorMessage = "La destination existe deja ou est inaccessible.";
         return false;
     }
 
     if (fwrite(image.header.data(), 1, image.header.size(), destination) !=
         image.header.size())
     {
-        errorMessage = "Cannot write BMP header.";
+        errorMessage = "Impossible d’ecrire l’en-tete BMP.";
         fclose(destination);
         return false;
     }
@@ -228,7 +228,7 @@ bool saveImage(const char *fileName, const BmpImage &image, std::string &errorMe
             if (fwrite(&image.pixels[index], 1, BYTES_PER_PIXEL, destination) !=
                 BYTES_PER_PIXEL)
             {
-                errorMessage = "Cannot write pixel.";
+                errorMessage = "Impossible d’ecrire un pixel.";
                 fclose(destination);
                 return false;
             }
@@ -241,7 +241,7 @@ bool saveImage(const char *fileName, const BmpImage &image, std::string &errorMe
         {
             if (fwrite(&image.paddings[paddingIndex], 1, 1, destination) != 1)
             {
-                errorMessage = "Cannot write padding.";
+                errorMessage = "Impossible d’ecrire le padding.";
                 fclose(destination);
                 return false;
             }
@@ -252,7 +252,7 @@ bool saveImage(const char *fileName, const BmpImage &image, std::string &errorMe
 
     if (fclose(destination) != 0)
     {
-        errorMessage = "Cannot close destination.";
+        errorMessage = "Impossible de fermer la destination.";
         return false;
     }
 
