@@ -38,7 +38,147 @@ Les données sont conservées dans la structure `BmpImage`
 | `pixels` | Composantes de couleur dans l'ordre BGR |
 | `paddings` | Octets de remplissage de chaque ligne |
 
+Les pixels sont lus avec fread().
+
+
+#### Gestion du padding
+
+Chaque ligne d'un BMP doit occuper un nombre d'octets multiple de quatre.
+
+Le programme calcule donc le padding :
+
+```cpp
+int rowBytes = width * BYTES_PER_PIXEL;
+int padding = (BYTE_ALIGNMENT - (rowBytes % BYTE_ALIGNMENT))
+              % BYTE_ALIGNMENT;
+```
+
+Les octets de padding sont conservés dans `paddings` pour pouvoir les réécrire lors de la sauvegarde.
+
+### 3. Insertion d'un message avec LSB
+
+La fonction `hideMessage()` permet de cacher un message dans les composantes de couleur.
+
+La méthode LSB (*Least Significant Bit*) consiste à modifier uniquement le bit de poids faible d'un octet.
+
+Pour cacher un bit, j'utilise :
+
+```cpp
+image.pixels[index] =
+    (image.pixels[index] & 0xFE) | bit;
+```
+
+Explication :
+
+- `& 0xFE` met le dernier bit à zéro.
+- `| bit` écrit le bit du message.
+- `++index` passe à la composante suivante.
+
+Chaque caractère est traité comme un octet. Un octet du message nécessite huit composantes de couleur.
+
+Cette méthode permet de cacher des données en modifiant chaque composante utilisée de 1 au maximum.
+
+### 4. Organisation des métadonnées
+
+Avant le message, le programme cache neuf octets de métadonnées.
+
+| Information | Taille | Utilité |
+|---|---|---|
+| Signature `STEG` | 4 octets | Identifier le format |
+| Indicateur de chiffrement | 1 octet | Indiquer si le message est chiffré |
+| Longueur du message | 4 octets | Connaître sa taille |
+| Message | Variable | Contenu à cacher |
+
+L'indicateur de chiffrement vaut :
+
+- `0` : message non chiffré.
+- `1` : message chiffré.
+
+La longueur est enregistrée sur quatre octets en little-endian.
+
+Les bits de chaque octet sont insérés du bit de poids fort vers le bit de poids faible.
+
+La fonction `hideMessage()` ne chiffre pas directement le message. Le chiffrement XOR est géré dans un autre module.
+
+### 5. Vérification de la capacité
+
+Avant l'insertion, le programme vérifie que l'image possède suffisamment de place.
+
+La capacité disponible est calculée avec :
+
+```cpp
+size_t capacity =
+    image.pixels.size() / BITS_PER_BYTE - METADATA_SIZE;
+```
+
+Ce calcul est effectué après avoir vérifié que l'image possède au moins 72 composantes pour les métadonnées.
+
+Si le message est trop grand, la fonction retourne `false` et renseigne `errorMessage`.
+
+La longueur du message est également limitée à la valeur maximale représentable sur 32 bits.
+
+### 6. Sauvegarde de l'image
+
+La fonction `saveImage()` permet de créer un nouveau fichier BMP.
+
+Elle réécrit :
+
+1. L'en-tête original.
+2. Les pixels, éventuellement modifiés par le LSB.
+3. Les octets de padding conservés.
+
+La sauvegarde utilise `fwrite()` pour écrire les données et `fclose()` pour fermer le fichier.
+
+Le fichier est ouvert avec :
+
+```cpp
+FILE* destination = fopen(fileName, "wbx");
+```
+
+Le mode `wbx` permet de créer un fichier sans écraser un fichier déjà existant.
+
+### 7. Tests de ma partie
+
+| Test | Résultat |
+|---|---|
+| Ouverture de `Image.bmp` | Fonctionnelle lors des essais |
+| Lecture des pixels BGR | Fonctionnelle lors des essais |
+| Insertion du message `Bonjour` | Effectuée pendant le développement |
+| Sauvegarde de `Image_cachee.bmp` | Effectuée pendant le développement |
+| Calcul du padding | Implémenté |
+| Vérification de capacité | Implémentée |
+| Refus d'écraser un fichier existant | Implémenté |
+
+Ces essais ont été réalisés pendant le développement. Ils doivent être rejoués après la fusion des branches.
+### 8. Limites de ma partie
+
+- Seules les images BMP 24 bits non compressées avec un en-tête DIB de 40 octets sont acceptées.
+- Les images avec une hauteur négative ne sont pas prises en charge.
+- Le message ne doit pas dépasser la capacité disponible.
+- Le LSB permet de dissimuler un message, mais ne le chiffre pas.
+- Les éventuelles données supplémentaires situées après les pixels ne sont pas conservées lors de la sauvegarde.
+
+### 9. Sources utilisées
+
+#### Format BMP
+
+- [Microsoft Learn - Bitmap Storage](https://learn.microsoft.com/en-us/windows/win32/gdi/bitmap-storage) : organisation des fichiers BMP.
+- [Microsoft Learn - BITMAPINFOHEADER](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapinfoheader) : informations sur les dimensions, les couleurs et les lignes.
+- [Wikipedia - BMP file format](https://en.wikipedia.org/wiki/BMP_file_format) : structure des en-têtes, pixels et padding.
+
+#### Fonctions C et C++
+
+- [Microsoft Learn - fopen](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/fopen-wfopen?view=msvc-170) : ouverture des fichiers et modes utilisés.
+- [cppreference - C-style file I/O](https://en.cppreference.com/w/cpp/io/c) : documentation de `fread()`, `fwrite()`, `fseek()`, `ftell()` et `fclose()`.
+
+#### Stéganographie
+
+- [Wikipedia - Steganography](https://en.wikipedia.org/wiki/Steganography) : principe de la stéganographie.
+- [Wikipedia - Bit numbering](https://en.wikipedia.org/wiki/Bit_numbering) : explication du bit de poids faible.
+
+
 ## Ligne de commandes, chiffrement XOR et extraction du message
+
 
 #### Développeur Sami BOUGRINI
 ## 1. Objectif de ma partie
