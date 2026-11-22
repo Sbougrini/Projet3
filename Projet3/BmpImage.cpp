@@ -104,7 +104,7 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
 
     if (pixelOffset > uint64_t(std::numeric_limits<long>::max()))
     {
-        errorMessage = "Le décalage des pixels du fichier BMP est trop grand.";
+        errorMessage = "Le decalage des pixels du fichier BMP est trop grand.";
         fclose(file);
         return false;
     }
@@ -119,14 +119,14 @@ bool loadImage(const char *fileName, BmpImage &image, std::string &errorMessage)
     if (fseek(file, 0, SEEK_SET) != 0 ||
         fread(result.header.data(), 1, pixelOffset, file) != pixelOffset)
     {
-        errorMessage = "Impossible de lire l’en-tete BMP complet.";
+        errorMessage = "Impossible de lire l'en-tete BMP complet.";
         fclose(file);
         return false;
     }
 
     if (fseek(file, static_cast<long>(pixelOffset), SEEK_SET) != 0)
     {
-        errorMessage = "Impossible d’atteindre les pixels du BMP.";
+        errorMessage = "Impossible d'atteindre les pixels du BMP.";
         fclose(file);
         return false;
     }
@@ -183,7 +183,7 @@ bool saveImage(const char *fileName, const BmpImage &image, std::string &errorMe
     if (image.width <= 0 || image.height <= 0 ||
         image.width > std::numeric_limits<int>::max() / BYTES_PER_PIXEL)
     {
-        errorMessage = "Dimensions de l’image invalides.";
+        errorMessage = "Dimensions de l'image invalides.";
         return false;
     }
 
@@ -213,7 +213,7 @@ bool saveImage(const char *fileName, const BmpImage &image, std::string &errorMe
     if (fwrite(image.header.data(), 1, image.header.size(), destination) !=
         image.header.size())
     {
-        errorMessage = "Impossible d’ecrire l’en-tete BMP.";
+        errorMessage = "Impossible d'ecrire l'en-tete BMP.";
         fclose(destination);
         return false;
     }
@@ -228,7 +228,7 @@ bool saveImage(const char *fileName, const BmpImage &image, std::string &errorMe
             if (fwrite(&image.pixels[index], 1, BYTES_PER_PIXEL, destination) !=
                 BYTES_PER_PIXEL)
             {
-                errorMessage = "Impossible d’ecrire un pixel.";
+                errorMessage = "Impossible d'ecrire un pixel.";
                 fclose(destination);
                 return false;
             }
@@ -241,7 +241,7 @@ bool saveImage(const char *fileName, const BmpImage &image, std::string &errorMe
         {
             if (fwrite(&image.paddings[paddingIndex], 1, 1, destination) != 1)
             {
-                errorMessage = "Impossible d’ecrire le padding.";
+                errorMessage = "Impossible d'ecrire le padding.";
                 fclose(destination);
                 return false;
             }

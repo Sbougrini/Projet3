@@ -26,7 +26,7 @@ bool hideMessage(BmpImage &image, const std::string &message, bool encrypted,
 
     if (image.pixels.size() < METADATA_SIZE * BITS_PER_BYTE)
     {
-        errorMessage = "Image is too small.";
+        errorMessage = "L'image est trop petite.";
         return false;
     }
 
@@ -34,13 +34,13 @@ bool hideMessage(BmpImage &image, const std::string &message, bool encrypted,
 
     if (message.size() > capacity)
     {
-        errorMessage = "Message is too large for this image.";
+        errorMessage = "Le message est trop grand pour cette image.";
         return false;
     }
 
     if (message.size() > std::numeric_limits<uint32_t>::max())
     {
-        errorMessage = "Message length is too large.";
+        errorMessage = "Le message est trop long.";
         return false;
     }
 
