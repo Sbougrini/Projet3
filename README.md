@@ -2,7 +2,72 @@
 BOUGRINI Sami
 BAURIN Nathan
 
-Dans ce projet nous avions pour but de cacher un message dans une image BMP, nous nous sommes donc partagé le travail à deux : 
+Dans ce projet nous avions pour but de cacher un message dans une image BMP, nous nous sommes donc partagé le travail à deux. Après la compilation et l'utilisation, chacun présente sa partie, et la répartition du travail est détaillée à la fin.
+
+## Compilation
+
+- **Environnement :** Visual Studio 2026 (outils de génération v145), norme **C++20**.
+- Ouvrir la solution **`Projet3.slnx`**.
+- Choisir la configuration **Debug** ou **Release**, plateforme **x64**.
+- Compiler avec **Générer → Générer la solution** (`Ctrl+Maj+B`).
+- L'exécutable est créé dans `x64\Debug\Projet3.exe` (ou `x64\Release\Projet3.exe`).
+
+Le projet utilise `fopen` comme demandé dans le sujet. Visual Studio le signale comme « non sécurisé » (avertissement C4996) : nous avons donc ajouté `_CRT_SECURE_NO_WARNINGS` dans **Propriétés → C/C++ → Préprocesseur → Définitions de préprocesseur**, pour Debug et pour Release.
+
+## Utilisation
+
+```
+Projet3.exe help
+Projet3.exe embed <source.bmp> <destination.bmp> "<message>" [--key "<cle>"]
+Projet3.exe extract <source.bmp> [--key "<cle>"]
+```
+
+- Les crochets `[ ]` indiquent une option facultative.
+- Les chemins et les messages qui contiennent des espaces doivent être écrits **entre guillemets**.
+- Le programme renvoie **0** si tout s'est bien passé, **1** en cas d'erreur (le message d'erreur est affiché).
+
+**Lancer le programme :**
+- depuis Visual Studio : **Projet → Propriétés → Débogage → Arguments de la commande**, puis `Ctrl+F5` ;
+- depuis un terminal ouvert dans le dossier `Projet3` (celui qui contient `images/`) : `..\x64\Debug\Projet3.exe help`.
+
+### Exemples
+
+Cacher un message sans clé :
+```
+Projet3.exe embed "images/Gaming_Campus_Logo.bmp" "images/logo secret.bmp" "rdv a 17h"
+```
+
+Cacher un message chiffré avec une clé :
+```
+Projet3.exe embed "images/Gaming_Campus_Logo.bmp" "images/logo chiffre.bmp" "rdv a 17h" --key "ma cle"
+```
+
+Retrouver les messages :
+```
+Projet3.exe extract "images/logo secret.bmp"
+Projet3.exe extract "images/logo chiffre.bmp" --key "ma cle"
+```
+
+Le fichier de destination ne doit pas exister : le programme refuse d'écraser un fichier.
+
+### Format supporté
+
+Images **BMP 24 bits non compressées**, avec un en-tête de 40 octets (`BITMAPINFOHEADER`), comme celles enregistrées par Paint. Les autres variantes (32 bits, compressées, en-tête de 124 octets) sont refusées avec un message d'erreur.
+
+Capacité : `(largeur × hauteur × 3) / 8 − 9` octets de message (9 octets de métadonnées). Par exemple, `images/Image.bmp` (8 × 8) peut contenir 15 octets.
+
+## Organisation du code
+
+| Fichiers | Rôle | Auteur |
+|---|---|---|
+| `Projet3.cpp` | `main` : appelle seulement `Application::run` | Sami |
+| `Application.h/.cpp` | relie tous les modules (embed et extract) | Sami |
+| `CommandLine.h/.cpp` | lecture et vérification de la ligne de commande, aide | Sami |
+| `Xor.h/.cpp` | chiffrement et déchiffrement XOR | Sami |
+| `BmpImage.h/.cpp` | chargement, vérification et sauvegarde du BMP | Nathan |
+| `Steganography.h/.cpp` | insertion (Nathan) et extraction (Sami) du message | Nathan et Sami |
+
+Les modules ne s'affichent rien eux-mêmes : chaque fonction qui peut échouer renvoie un `bool` et remplit un message d'erreur, et c'est `Application` qui affiche.
 
 ## Gestion des images BMP et insertion du message
 
@@ -297,3 +362,90 @@ Si une clé est donnée alors que le message n'est pas chiffré, un avertissemen
 Chaque étape vérifie si elle a réussi : en cas d'erreur, le message d'erreur est affiché et le programme s'arrête. Le programme renvoie 0 si tout s'est bien passé, et 1 en cas d'erreur.
 
 `Application` est une classe statique (son constructeur est supprimé), car elle n'a pas de données à garder entre deux appels.
+
+## 6. Tests de ma partie
+
+Les tests ont été faits depuis Visual Studio (arguments de débogage) et depuis un terminal, après la fusion des branches dans `dev`.
+
+#### Ligne de commande
+
+| Test | Commande | Résultat |
+|---|---|---|
+| Aide | `help` | L'aide s'affiche |
+| Aucune commande | *(rien)* | Erreur + aide |
+| Commande inconnue | `cacher ...` | Erreur + aide |
+| Arguments manquants | `embed image.bmp` | Erreur + aide |
+| Trop d'arguments | `extract a.bmp b.bmp` | Erreur + aide |
+| Message vide | `embed a.bmp b.bmp ""` | Erreur « message vide » |
+| Option inconnue | `embed a.bmp b.bmp "Salut" --cle "x"` | Erreur |
+| `--key` sans clé | `extract b.bmp --key` | Erreur |
+| Clé vide | `extract b.bmp --key ""` | Erreur |
+| Espaces dans les chemins et le message | `embed "images/Gaming_Campus_Logo.bmp" "images/logo secret.bmp" "rdv a 17h"` | Accepté |
+
+#### Chiffrement XOR
+
+| Test | Résultat |
+|---|---|
+| Chiffrer puis déchiffrer avec la même clé | Le texte d'origine est retrouvé |
+| Clé plus courte que le message | La clé est répétée, le texte est retrouvé |
+| Déchiffrer avec une autre clé | Des caractères sans signification, sans plantage |
+
+#### Extraction et programme complet
+
+| Test | Résultat |
+|---|---|
+| Cacher puis extraire sans clé | Message retrouvé |
+| Cacher puis extraire avec la même clé | Message retrouvé |
+| Extraire un message chiffré sans `--key` | Erreur « ce message est chiffre, utilisez --key » |
+| Extraire avec une mauvaise clé | Texte illisible, sans plantage |
+| Donner une clé alors que le message n'est pas chiffré | Avertissement, puis le message s'affiche |
+| Extraire d'une image sans message | Erreur « Aucun message cache dans l'image » |
+| Message à la capacité maximale (`Image.bmp` 8 × 8 : 15 octets) | Accepté et retrouvé |
+| Un octet de trop (16 octets) | Refusé |
+| Accents dans le message | Retrouvés à l'identique |
+| Image avec padding (`Gaming_Campus_Logo.bmp`, 554 × 554) | Message retrouvé, padding intact |
+| Destination déjà existante | Refusé, le fichier n'est pas écrasé |
+| Fichier absent | Erreur, sans plantage |
+
+J'ai aussi comparé l'image avant et après une insertion dans l'éditeur binaire de Visual Studio : seuls les bits de poids faible des composantes changent, l'en-tête et le padding restent identiques.
+
+## 7. Limites de ma partie
+
+- Le XOR avec une clé répétée ne protège pas vraiment le message : il suffit de connaître une partie du texte pour retrouver la clé.
+- Une mauvaise clé n'est pas détectée : le programme affiche des caractères sans signification au lieu d'une erreur.
+- Le message est caché et relu octet par octet, sans conversion : les accents s'affichent correctement seulement si la console utilise le même encodage à l'insertion et à l'extraction.
+- La clé et le message sont tapés dans la ligne de commande, ils peuvent donc rester visibles dans l'historique du terminal.
+- La stéganographie cache le message mais ne le protège pas : quelqu'un qui connaît le format (`STEG`, drapeau, longueur) peut le lire.
+
+## 8. Sources utilisées
+
+#### Ligne de commande et C++
+
+- [cppreference - Main function](https://en.cppreference.com/w/cpp/language/main_function) : `argc`, `argv` et leur conversion.
+- [cppreference - std::vector](https://en.cppreference.com/w/cpp/container/vector) et [std::string](https://en.cppreference.com/w/cpp/string/basic_string) : le vecteur d'arguments.
+- [cppreference - enum class](https://en.cppreference.com/w/cpp/language/enum) : la structure `Command` et le `Mode`.
+- [cppreference - Fixed width integer types](https://en.cppreference.com/w/cpp/types/integer) : `std::uint32_t` pour la longueur du message.
+
+#### Opérations sur les bits et XOR
+
+- [cppreference - Bitwise operators](https://en.cppreference.com/w/cpp/language/operator_arithmetic#Bitwise_logic_operators) : `&`, `|`, `^`, `<<`, utilisés pour lire les bits et pour le XOR.
+- [Wikipedia - XOR cipher](https://en.wikipedia.org/wiki/XOR_cipher) : le principe du chiffrement XOR et ses limites.
+- Le cours sur les opérations binaires (masques, décalages) vu en classe.
+
+## Répartition du travail
+
+| | Nathan BAURIN | Sami BOUGRINI |
+|---|---|---|
+| Module principal | `BmpImage` : lecture, vérification, padding, sauvegarde | `CommandLine` : commandes, `--key`, aide, erreurs |
+| Stéganographie | insertion du message (LSB), métadonnées, capacité | extraction du message, vérification de la longueur |
+| Autres | | `Xor`, `Application` et `main` |
+| README | sa partie | sa partie, compilation et utilisation |
+
+Chacun a travaillé sur sa propre branche Git (`Nathan`, `Sami`, `CommandLine`, `XOR`, `Extract`…), fusionnée dans `dev` par Pull Request. Nous avons ensuite testé les deux parties ensemble après la fusion (voir les sections « Tests »).
+
+## Limites communes
+
+- Seules les images BMP 24 bits non compressées sont acceptées.
+- La stéganographie cache le message mais ne le protège pas, et le XOR avec une clé répétée est facile à casser.
+- Une mauvaise clé n'est pas détectée.
+- Le message modifie l'image : enregistrer l'image dans un autre format (JPEG…) ou la retoucher efface le message.
